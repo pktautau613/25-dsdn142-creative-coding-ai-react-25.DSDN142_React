@@ -17,32 +17,101 @@ function drawInteraction(faces, hands) {
       drawConnections(hand)
     }
 
-    let middleFingerMcpX = hand.middle_finger_mcp.x;
-    let middleFingerMcpY = hand.middle_finger_mcp.y;
-    /*
-    Start drawing on the hands here
-    */
+    let thumbTip = hand.thumb_tip;
+    let indTip = hand.index_finger_tip;
 
-    let whatGesture = detectHandGesture(hand)
+    let indPip = hand.index_finger_pip;
 
-    if (whatGesture == "Peace") {
-      fill(255, 38, 219) // pink
-    }
-    if (whatGesture == "Thumbs Up") {
-      fill(255, 252, 48) // yellow
-    }
+    let thumbDip = hand.thumb_ip;
+    
+    let thumbMcp = hand.thumb_mcp;
+    let indMcp = hand.index_finger_mcp;
+    let middleMcp = hand.middle_finger_mcp;
+    let pinkMcp = hand.pinky_finger_mcp;
+    
+    let wrist = hand.wrist;
 
+    let indThMTx = (thumbTip.x + indMcp.x + indPip.x) /3;
+    let indThMTy = (thumbTip.y + indMcp.y + indPip.y) /3;
+
+    let thumbIndTipX = (thumbTip.x + indTip.x) /2;
+    let thumbIndTipY = (thumbTip.y + indTip.y) /2;
+    
+    let thIndX = (thumbTip.x + indTip.x + indMcp.x) /3;
+    let thIndY = (thumbTip.y + indTip.y + indMcp.y) /3;
+    
+    let thThIndX = (thumbTip.x + indTip.x + thumbDip.x) /3;
+    let ththIndY = (thumbTip.y + indTip.y + thumbDip.y) /3;
+
+
+    let midIndMcpX = (indMcp.x + middleMcp.x) /2;
+    let midIndMcpY = (indMcp.y + middleMcp.y) /2;
+
+    let palmX = (middleMcp.x + wrist.x) /2;
+    let palmY = (middleMcp.y + wrist.y) /2;
+    let elbowX = (indMcp.x + thumbMcp.x) /2;
+    let elbowY = (indMcp.y + thumbMcp.y) /2;
+
+  //=================================================
 
     if (hand.handedness === "Right") {
-      rect(middleFingerMcpX, middleFingerMcpY, 100)
+      stroke(50,220,10);
+      strokeWeight(5);
+
+     
+      //Star on palm
+      // beginShape();
+      // vertex(indTip.x, indTip.y);
+      // vertex(indTip.x, indTip.y);
+      // vertex(midIndMcpX, midIndMcpY);
+      // vertex(pinkMcp.x, pinkMcp.y);
+      // vertex(palmX, palmY);
+      // vertex(wrist.x, wrist.y);
+      // vertex(elbowX, elbowY);
+      // vertex(indTip.x, indTip.y);
+      // endShape();
+
+      // Star in Crook?
+      beginShape();
+      vertex(thumbIndTipX, thumbIndTipY);
+      vertex(indTip.x, indTip.y);
+      vertex(thIndX, thIndY);
+      vertex(indMcp.x, indMcp.y);
+      vertex(indThMTx, indThMTy);
+      vertex(thumbMcp.x, thumbMcp.y);
+      vertex(thThIndX, ththIndY);
+      endShape();
+
+
+
+  
+
+      // line(thumbIndTipX, thumbIndTipY, indTip.x, indTip.y);
+      // line(thumbIndTipX, thumbIndTipY, indMcp.x, indMcp.y);
+      // line(thumbIndTipX, thumbIndTipY, thumbMcp.x, thumbMcp.y);
     }
 
     if (hand.handedness === "Left") {
-     ellipse(middleFingerMcpX, middleFingerMcpY, 100)
+
+      stroke(180,80,200);
+      strokeWeight(5);
+
+         beginShape();
+      vertex(thumbIndTipX, thumbIndTipY);
+      vertex(indTip.x, indTip.y);
+      vertex(thIndX, thIndY);
+      vertex(indMcp.x, indMcp.y);
+      vertex(indThMTx, indThMTy);
+      vertex(thumbMcp.x, thumbMcp.y);
+      vertex(thThIndX, ththIndY);
+      endShape();
+
+
+      // line(thumbIndTipX, thumbIndTipY, indTip.x, indTip.y);
+      // line(thumbIndTipX, thumbIndTipY, indMcp.x, indMcp.y);
+      // line(thumbIndTipX, thumbIndTipY, thumbMcp.x, thumbMcp.y);
     }
-    /*
-    Stop drawing on the hands here
-    */
+   //=================================================
   }
   // You can make addtional elements here, but keep the hand drawing inside the for loop. 
   //------------------------------------------------------

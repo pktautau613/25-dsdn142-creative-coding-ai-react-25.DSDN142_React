@@ -22,7 +22,7 @@ function drawInteraction(faces, hands) {
     color(255, 176, 18), // orange
 
   ];
-
+/////
   selectedColor = colors[int(map(Yvalue, 0, height, 0, colors.length))]
 
   fill(selectedColor)
