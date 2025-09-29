@@ -7,6 +7,9 @@ function prepareInteraction() {
   //bgImage = loadImage('/images/background.png');
 }
 
+
+
+
 function drawInteraction(faces, hands) {
   // hands part
   // for loop to capture if there is more than one hand on the screen. This applies the same process to all hands.
@@ -16,6 +19,7 @@ function drawInteraction(faces, hands) {
     if (showKeypoints) {
       drawConnections(hand)
     }
+
 
     let thumbTip = hand.thumb_tip;
     let indTip = hand.index_finger_tip;
@@ -55,61 +59,14 @@ function drawInteraction(faces, hands) {
   //=================================================
 
     if (hand.handedness === "Right") {
-      stroke(50,220,10);
-      strokeWeight(5);
-
-     
-      //Star on palm
-      // beginShape();
-      // vertex(indTip.x, indTip.y);
-      // vertex(indTip.x, indTip.y);
-      // vertex(midIndMcpX, midIndMcpY);
-      // vertex(pinkMcp.x, pinkMcp.y);
-      // vertex(palmX, palmY);
-      // vertex(wrist.x, wrist.y);
-      // vertex(elbowX, elbowY);
-      // vertex(indTip.x, indTip.y);
-      // endShape();
-
-      // Star in Crook?
-      beginShape();
-      vertex(thumbIndTipX, thumbIndTipY);
-      vertex(indTip.x, indTip.y);
-      vertex(thIndX, thIndY);
-      vertex(indMcp.x, indMcp.y);
-      vertex(indThMTx, indThMTy);
-      vertex(thumbMcp.x, thumbMcp.y);
-      vertex(thThIndX, ththIndY);
-      endShape();
 
 
 
-  
-
-      // line(thumbIndTipX, thumbIndTipY, indTip.x, indTip.y);
-      // line(thumbIndTipX, thumbIndTipY, indMcp.x, indMcp.y);
-      // line(thumbIndTipX, thumbIndTipY, thumbMcp.x, thumbMcp.y);
     }
 
     if (hand.handedness === "Left") {
 
-      stroke(180,80,200);
-      strokeWeight(5);
 
-         beginShape();
-      vertex(thumbIndTipX, thumbIndTipY);
-      vertex(indTip.x, indTip.y);
-      vertex(thIndX, thIndY);
-      vertex(indMcp.x, indMcp.y);
-      vertex(indThMTx, indThMTy);
-      vertex(thumbMcp.x, thumbMcp.y);
-      vertex(thThIndX, ththIndY);
-      endShape();
-
-
-      // line(thumbIndTipX, thumbIndTipY, indTip.x, indTip.y);
-      // line(thumbIndTipX, thumbIndTipY, indMcp.x, indMcp.y);
-      // line(thumbIndTipX, thumbIndTipY, thumbMcp.x, thumbMcp.y);
     }
    //=================================================
   }

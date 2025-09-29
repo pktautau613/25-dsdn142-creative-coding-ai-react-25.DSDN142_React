@@ -17,19 +17,119 @@ function drawInteraction(faces, hands) {
       drawConnections(hand)
     }
     // console.log(hand);
-    let indexFingerTipX = hand.index_finger_tip.x;
-    let indexFingerTipY = hand.index_finger_tip.y;
+       let thumbTip = hand.thumb_tip;
+    let indTip = hand.index_finger_tip;
+
+    let indPip = hand.index_finger_pip;
+
+    let thumbDip = hand.thumb_ip;
+    
+    let thumbMcp = hand.thumb_mcp;
+    let indMcp = hand.index_finger_mcp;
+    let middleMcp = hand.middle_finger_mcp;
+    let pinkMcp = hand.pinky_finger_mcp;
+    
+    let wrist = hand.wrist;
+
+    let indThMTx = (thumbTip.x + indMcp.x + indPip.x) /3;
+    let indThMTy = (thumbTip.y + indMcp.y + indPip.y) /3;
+
+    let thumbIndTipX = (thumbTip.x + indTip.x) /2;
+    let thumbIndTipY = (thumbTip.y + indTip.y) /2;
+    
+    let thIndX = (thumbTip.x + indTip.x + indMcp.x) /3;
+    let thIndY = (thumbTip.y + indTip.y + indMcp.y) /3;
+    
+    let thThIndX = (thumbTip.x + indTip.x + thumbDip.x) /3;
+    let ththIndY = (thumbTip.y + indTip.y + thumbDip.y) /3;
+
+
+    let midIndMcpX = (indMcp.x + middleMcp.x) /2;
+    let midIndMcpY = (indMcp.y + middleMcp.y) /2;
+
+    let palmX = (middleMcp.x + wrist.x) /2;
+    let palmY = (middleMcp.y + wrist.y) /2;
+    let elbowX = (indMcp.x + thumbMcp.x) /2;
+    let elbowY = (indMcp.y + thumbMcp.y) /2;
+
     /*
     Start drawing on the hands here
     */
 
     // pinchCircle(hand)
-    fill(225, 225, 0);
-    ellipse(indexFingerTipX, indexFingerTipY, 30, 30);
+    
+    // if (hand.handedness === "Left"){
+      
+    //   fill(225, 225, 0);
+    //   ellipse(palmX, palmY, 200);
+
+    // }
+    // if (hand.handedness === "Right"){
+      
+    //   fill(0,0,255);
+    //   ellipse(palmX, palmY, 200);
+    // }
 
     /*
     Stop drawing on the hands here
     */
+   for (let i = 0; i < faces.length; i++) {
+     let face = faces[i]; // face holds all the keypoints of the face
+     if (showKeypoints) {
+       drawPoints(face)
+     }
+     // console.log(face);
+     /*
+     Once this program has a face, it knows some things about it.
+     This includes how to draw a box around the face, and an oval. 
+     It also knows where the key points of the following parts are:
+      face.leftEye
+      face.leftEyebrow
+      face.lips
+      face.rightEye
+      face.rightEyebrow
+     */
+ 
+     /*
+     Start drawing on the face here
+     */
+ 
+     // fill(225, 225, 0);
+     // ellipse(leftEyeCenterX, leftEyeCenterY, leftEyeWidth, leftEyeHeight);
+ 
+     if (hand.handedness === "Left"){
+       fill(255);
+       stroke(100,255,40);
+       //  line(face.leftEye.x, face.leftEye.y, palmX, palmY);
+       line(face.rightEye.x, face.rightEye.y, palmX, palmY);
+       
+       ellipse(palmX, palmY, 200);
+      }
+      if (hand.handedness === "Right"){
+        fill(255);
+        stroke(220,20,100);
+        line(face.leftEye.x, face.leftEye.y, palmX, palmY);
+        //  line(face.rightEye.x, face.rightEye.y, palmX, palmY);
+     
+       ellipse(palmX, palmY, 200);
+     }
+      strokeWeight(5);
+      //  drawPoints(face.leftEye);
+      //  drawPoints(face.leftEyebrow);
+      //  drawPoints(face.lips);
+      //  drawPoints(face.rightEye);
+      //  drawPoints(face.rightEyebrow);
+      /*
+      Stop drawing on the face here
+      */
+     noStroke();
+  }
+ 
+   }
+
+
+
+
   }
 
 
@@ -37,43 +137,8 @@ function drawInteraction(faces, hands) {
   //------------------------------------------------------------
   //facePart
   // for loop to capture if there is more than one face on the screen. This applies the same process to all faces. 
-  for (let i = 0; i < faces.length; i++) {
-    let face = faces[i]; // face holds all the keypoints of the face
-    if (showKeypoints) {
-      drawPoints(face)
-    }
-    // console.log(face);
-    /*
-    Once this program has a face, it knows some things about it.
-    This includes how to draw a box around the face, and an oval. 
-    It also knows where the key points of the following parts are:
-     face.leftEye
-     face.leftEyebrow
-     face.lips
-     face.rightEye
-     face.rightEyebrow
-    */
-
-    /*
-    Start drawing on the face here
-    */
-
-    // fill(225, 225, 0);
-    // ellipse(leftEyeCenterX, leftEyeCenterY, leftEyeWidth, leftEyeHeight);
-
-    drawPoints(face.leftEye);
-    drawPoints(face.leftEyebrow);
-    drawPoints(face.lips);
-    drawPoints(face.rightEye);
-    drawPoints(face.rightEyebrow);
-    /*
-    Stop drawing on the face here
-    */
-
-  }
   //------------------------------------------------------
-  // You can make addtional elements here, but keep the face drawing inside the for loop. 
-}
+  // You can make addtional elements here, but keep the face drawing inside the for loop. }
 
 
 function drawConnections(hand) {
