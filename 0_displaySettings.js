@@ -30,8 +30,8 @@
 
 
 // If using Webcam use these dimentions
-const  CaptureWidth = 1280;
-const  CaptureHeight = 960;
+const  CaptureWidth = 640;
+const  CaptureHeight = 480;
 
 // const  CaptureWidth = 1024;
 // const  CaptureHeight = 768;
