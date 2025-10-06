@@ -16,8 +16,8 @@ function drawInteraction(faces, hands) {
       drawPoints(hand)
       drawConnections(hand)
     }
-    // console.log(hand);
-       let thumbTip = hand.thumb_tip;
+    let thumbTip = hand.thumb_tip;
+
     let indTip = hand.index_finger_tip;
 
     let indPip = hand.index_finger_pip;
@@ -31,59 +31,30 @@ function drawInteraction(faces, hands) {
     
     let wrist = hand.wrist;
 
-    let indThMTx = (thumbTip.x + indMcp.x + indPip.x) /3;
-    let indThMTy = (thumbTip.y + indMcp.y + indPip.y) /3;
-
-    let thumbIndTipX = (thumbTip.x + indTip.x) /2;
-    let thumbIndTipY = (thumbTip.y + indTip.y) /2;
-    
-    let thIndX = (thumbTip.x + indTip.x + indMcp.x) /3;
-    let thIndY = (thumbTip.y + indTip.y + indMcp.y) /3;
-    
-    let thThIndX = (thumbTip.x + indTip.x + thumbDip.x) /3;
-    let ththIndY = (thumbTip.y + indTip.y + thumbDip.y) /3;
-
-
-    let midIndMcpX = (indMcp.x + middleMcp.x) /2;
-    let midIndMcpY = (indMcp.y + middleMcp.y) /2;
-
-    let palmX = (middleMcp.x + wrist.x) /2;
-    let palmY = (middleMcp.y + wrist.y) /2;
-    let elbowX = (indMcp.x + thumbMcp.x) /2;
-    let elbowY = (indMcp.y + thumbMcp.y) /2;
-
-
-    
-    // ellipse(palmX, palmY, 300);
     //==============================================
-    for (let i = 0; i < faces.length; i++) {
-      let face = faces[i]; // face holds all the keypoints of the face
-      if (showKeypoints) {
-        drawPoints(face)
-      }
-
+    
       //face variables
 
-      let eyeRight = face.rightEye;
+      // let eyeRight = face.rightEye;
       
       
       if (hand.handedness === "Left"){
         fill(255);
         stroke(100,255,40);
-         line(face.leftEye.x, face.leftEye.y, palmX, palmY);
+        //  line(face.leftEye.x, face.leftEye.y, palmX, palmY);
        //  line(face.rightEye.x, face.rightEye.y, palmX, palmY);
         
-        ellipse(palmX, palmY, 200);
+        ellipse(indTip.x, indTip.y, 40);
        }
     
 
       if (hand.handedness === "Right"){
         fill(255);
         stroke(220,20,100);
-        line(face.leftEye.x, face.leftEye.y, palmX, palmY);
+        // line(face.leftEye.x, face.leftEye.y, palmX, palmY);
         //  line(face.rightEye.x, face.rightEye.y, palmX, palmY);
      
-       ellipse(palmX, palmY, 200);
+      //  ellipse(palmX, palmY, 200);
      }
       strokeWeight(5);
  
@@ -95,7 +66,7 @@ function drawInteraction(faces, hands) {
 
 
 
-  }
+  
 
 
 
