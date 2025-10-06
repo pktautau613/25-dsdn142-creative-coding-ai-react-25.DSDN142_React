@@ -52,59 +52,31 @@ function drawInteraction(faces, hands) {
     let elbowX = (indMcp.x + thumbMcp.x) /2;
     let elbowY = (indMcp.y + thumbMcp.y) /2;
 
-    /*
-    Start drawing on the hands here
-    */
 
-    // pinchCircle(hand)
     
-    // if (hand.handedness === "Left"){
-      
-    //   fill(225, 225, 0);
-    //   ellipse(palmX, palmY, 200);
-
-    // }
-    // if (hand.handedness === "Right"){
-      
-    //   fill(0,0,255);
-    //   ellipse(palmX, palmY, 200);
-    // }
-
-    /*
-    Stop drawing on the hands here
-    */
-   for (let i = 0; i < faces.length; i++) {
-     let face = faces[i]; // face holds all the keypoints of the face
-     if (showKeypoints) {
-       drawPoints(face)
-     }
-     // console.log(face);
-     /*
-     Once this program has a face, it knows some things about it.
-     This includes how to draw a box around the face, and an oval. 
-     It also knows where the key points of the following parts are:
-      face.leftEye
-      face.leftEyebrow
-      face.lips
-      face.rightEye
-      face.rightEyebrow
-     */
- 
-     /*
-     Start drawing on the face here
-     */
- 
-     // fill(225, 225, 0);
-     // ellipse(leftEyeCenterX, leftEyeCenterY, leftEyeWidth, leftEyeHeight);
- 
-     if (hand.handedness === "Left"){
-       fill(255);
-       stroke(100,255,40);
-       //  line(face.leftEye.x, face.leftEye.y, palmX, palmY);
-       line(face.rightEye.x, face.rightEye.y, palmX, palmY);
-       
-       ellipse(palmX, palmY, 200);
+    // ellipse(palmX, palmY, 300);
+    //==============================================
+    for (let i = 0; i < faces.length; i++) {
+      let face = faces[i]; // face holds all the keypoints of the face
+      if (showKeypoints) {
+        drawPoints(face)
       }
+
+      //face variables
+
+      let eyeRight = face.rightEye;
+      
+      
+      if (hand.handedness === "Left"){
+        fill(255);
+        stroke(100,255,40);
+         line(face.leftEye.x, face.leftEye.y, palmX, palmY);
+       //  line(face.rightEye.x, face.rightEye.y, palmX, palmY);
+        
+        ellipse(palmX, palmY, 200);
+       }
+    
+
       if (hand.handedness === "Right"){
         fill(255);
         stroke(220,20,100);
@@ -114,14 +86,7 @@ function drawInteraction(faces, hands) {
        ellipse(palmX, palmY, 200);
      }
       strokeWeight(5);
-      //  drawPoints(face.leftEye);
-      //  drawPoints(face.leftEyebrow);
-      //  drawPoints(face.lips);
-      //  drawPoints(face.rightEye);
-      //  drawPoints(face.rightEyebrow);
-      /*
-      Stop drawing on the face here
-      */
+ 
      noStroke();
   }
  
