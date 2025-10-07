@@ -1,380 +1,297 @@
 let myImage;
 
-// Simple ball physics state
-let ball = {
-  x: 0,
-  y: 0,
-  vx: 0,
-  vy: 0,
-  r: 35,
-  restitution: 0.78, // bounciness on walls/fingers
-  friction: 0.892,   // slows the ball over time
-  initialized: false
+// Config
+const CONFIG = {
+  ball: { r: 20, restitution: 0.78, friction: 0.892 },
+  fingerRadius: 24,
+  indexTouchThreshold: 90,
+  imageSize: 50
 };
 
-// Fingertip radius used for collision
-const fingerRadius = 24;
+// Utility: normalize dt to ~60fps and clamp extremes
+function normalizedDt() {
+  return constrain(deltaTime / 16.666, 0.5, 2.0);
+}
 
-// Store previous fingertip positions to estimate finger velocity (how hard you hit)
-const prevTips = {
-  L: null, // { x, y }
-  R: null  // { x, y }
-};
+// Hands helpers
+function splitHands(hands) {
+  const LH = hands?.find(h => h.handedness === "Left") || null;
+  const RH = hands?.find(h => h.handedness === "Right") || null;
+  const LT = LH ? { x: LH.index_finger_tip.x, y: LH.index_finger_tip.y } : null;
+  const RT = RH ? { x: RH.index_finger_tip.x, y: RH.index_finger_tip.y } : null;
+  return { LH, RH, LT, RT };
+}
 
-// Track the on-screen image as a moving rectangle for collision with the ball
-const imageRect = {
-  x: 0,
-  y: 0,
-  w: 50,
-  h: 50,
-  vx: 0,
-  vy: 0,
-  prevX: null,
-  prevY: null,
-  visible: false
-};
+// Tracks previous fingertip positions and returns velocities
+class FingerTracker {
+  constructor() {
+    this.prev = { L: null, R: null };
+  }
+  velocities(L, R, dt) {
+    return {
+      L: this.#vel("L", L, dt),
+      R: this.#vel("R", R, dt)
+    };
+  }
+  #vel(which, tip, dt) {
+    const p = this.prev[which];
+    if (!tip || !p || dt === 0) return { vx: 0, vy: 0 };
+    return { vx: (tip.x - p.x) / dt, vy: (tip.y - p.y) / dt };
+  }
+  update(L, R) {
+    this.prev.L = L ? { x: L.x, y: L.y } : null;
+    this.prev.R = R ? { x: R.x, y: R.y } : null;
+  }
+}
 
-// ----=  HANDS  =----
+class Ball {
+  constructor({ r, restitution, friction }) {
+    this.x = 0; this.y = 0;
+    this.vx = 0; this.vy = 0;
+    this.r = r;
+    this.restitution = restitution;
+    this.friction = friction;
+    this.initialized = false;
+  }
+
+  initCenter() {
+    this.x = width / 2;
+    this.y = height / 2;
+    this.vx = 0; this.vy = 0;
+    this.initialized = true;
+  }
+
+  update(dt) {
+    // Optional gravity:
+    // this.vy += 0.2 * dt;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+  }
+
+  applyFriction() {
+    this.vx *= this.friction;
+    this.vy *= this.friction;
+  }
+
+  draw() {
+    noStroke();
+    fill(255, 165, 0);
+    ellipse(this.x, this.y, this.r * 2, this.r * 2);
+  }
+
+  resolveBounds() {
+    if (this.x < this.r) { this.x = this.r; this.vx = -this.vx * this.restitution; }
+    else if (this.x > width - this.r) { this.x = width - this.r; this.vx = -this.vx * this.restitution; }
+    if (this.y < this.r) { this.y = this.r; this.vy = -this.vy * this.restitution; }
+    else if (this.y > height - this.r) { this.y = height - this.r; this.vy = -this.vy * this.restitution; }
+  }
+
+  // Collide ball with a fingertip (circle vs circle)
+  collideFinger(fx, fy, fvx, fvy, fingerRadius) {
+    const dx = this.x - fx;
+    const dy = this.y - fy;
+    const minDist = this.r + fingerRadius;
+    const distSq = dx * dx + dy * dy;
+    if (distSq > minDist * minDist) return;
+
+    const dist = max(1, sqrt(distSq));
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const penetration = minDist - dist;
+
+    // Positional correction
+    this.x += nx * penetration;
+    this.y += ny * penetration;
+
+    // Velocity response (relative along normal)
+    const relVx = this.vx - fvx;
+    const relVy = this.vy - fvy;
+    const vn = relVx * nx + relVy * ny;
+
+    if (vn < 0) {
+      const j = -(1 + this.restitution) * vn; // infinite mass finger
+      this.vx += nx * j;
+      this.vy += ny * j;
+    } else {
+      // Carry a little finger motion for responsiveness
+      this.vx += fvx * 0.08;
+      this.vy += fvy * 0.08;
+    }
+  }
+
+  // Collide ball (circle) with an axis-aligned moving rectangle rect:{x,y,w,h,vx,vy,visible}
+  collideRect(rect) {
+    const closestX = constrain(this.x, rect.x, rect.x + rect.w);
+    const closestY = constrain(this.y, rect.y, rect.y + rect.h);
+    let dx = this.x - closestX;
+    let dy = this.y - closestY;
+    let distSq = dx * dx + dy * dy;
+
+    // Center inside rect case: push out along shallowest axis
+    if (dx === 0 && dy === 0) {
+      const dLeft = this.x - rect.x;
+      const dRight = (rect.x + rect.w) - this.x;
+      const dTop = this.y - rect.y;
+      const dBottom = (rect.y + rect.h) - this.y;
+      const minH = min(dLeft, dRight);
+      const minV = min(dTop, dBottom);
+      let nx = 0, ny = 0, penetration = 0;
+
+      if (minH < minV) {
+        if (dLeft < dRight) { nx = -1; penetration = dLeft + this.r; }
+        else { nx = 1; penetration = dRight + this.r; }
+      } else {
+        if (dTop < dBottom) { ny = -1; penetration = dTop + this.r; }
+        else { ny = 1; penetration = dBottom + this.r; }
+      }
+
+      this.x += nx * penetration;
+      this.y += ny * penetration;
+
+      const relVx = this.vx - rect.vx;
+      const relVy = this.vy - rect.vy;
+      const vn = relVx * nx + relVy * ny;
+      if (vn < 0) {
+        const j = -(1 + this.restitution) * vn;
+        this.vx += nx * j;
+        this.vy += ny * j;
+      }
+      return;
+    }
+
+    // Normal circle-rect collision
+    if (distSq <= this.r * this.r) {
+      const dist = max(1, sqrt(distSq));
+      const nx = dx / dist;
+      const ny = dy / dist;
+      const penetration = this.r - dist;
+
+      this.x += nx * penetration;
+      this.y += ny * penetration;
+
+      const relVx = this.vx - rect.vx;
+      const relVy = this.vy - rect.vy;
+      const vn = relVx * nx + relVy * ny;
+      if (vn < 0) {
+        const j = -(1 + this.restitution) * vn;
+        this.vx += nx * j;
+        this.vy += ny * j;
+      }
+    }
+  }
+}
+
+class MovingRect {
+  constructor(w = CONFIG.imageSize, h = CONFIG.imageSize) {
+    this.x = 0; this.y = 0;
+    this.w = w; this.h = h;
+    this.vx = 0; this.vy = 0;
+    this.prevX = null; this.prevY = null;
+    this.visible = false;
+  }
+
+  hide() {
+    this.visible = false;
+    this.vx = 0; this.vy = 0;
+    this.prevX = null; this.prevY = null;
+  }
+
+  // Update rect position/velocity from two index fingertips if they are close enough
+  updateFromIndexTouches(LT, RT, dt, threshold = CONFIG.indexTouchThreshold) {
+    if (!LT || !RT) { this.hide(); return false; }
+
+    if (dist(LT.x, LT.y, RT.x, RT.y) >= threshold) { this.hide(); return false; }
+
+    const cx = (LT.x + RT.x) / 2;
+    const cy = (LT.y + RT.y) / 2;
+    const newX = cx - this.w / 2;
+    const newY = cy - this.h / 2;
+
+    if (this.prevX !== null && this.prevY !== null && dt !== 0) {
+      this.vx = (newX - this.prevX) / dt;
+      this.vy = (newY - this.prevY) / dt;
+    } else {
+      this.vx = 0; this.vy = 0;
+    }
+
+    this.x = newX; this.y = newY;
+    this.visible = true;
+    this.prevX = this.x; this.prevY = this.y;
+    return true;
+  }
+
+  drawImage(img) {
+    if (!this.visible) return;
+    image(img, this.x, this.y, this.w, this.h);
+  }
+}
+
+// Instances
+let ball = new Ball(CONFIG.ball);
+let imageRect = new MovingRect();
+let fingerTracker = new FingerTracker();
+
+// Simple moving barrier (visual only; not colliding with ball)
+const barrier = { x: 100, y: 0, w: 10, h: 100, vy: 2 };
+
+// Lifecycle
 function prepareInteraction() {
   myImage = loadImage('danny-devito.jpg');
-
-  // If canvas exists now, place the ball in the center; otherwise we'll lazy-init in drawInteraction
   if (typeof width !== "undefined" && typeof height !== "undefined" && width > 0 && height > 0) {
-    ball.x = width / 2;
-    ball.y = height / 2;
-    ball.vx = 0;
-    ball.vy = 0;
-    ball.initialized = true;
+    ball.initCenter();
   }
 }
 
 function drawInteraction(faces, hands) {
   imageMode(CORNER);
 
-  // Ensure ball initialized (covers cases where width/height aren't ready at prepareInteraction)
-  if (!ball.initialized) {
-    ball.x = width / 2;
-    ball.y = height / 2;
-    ball.vx = 0;
-    ball.vy = 0;
-    ball.initialized = true;
+  if (!ball.initialized) ball.initCenter();
+
+  const { LH, RH, LT, RT } = splitHands(hands);
+
+  // dt and physics
+  const dt = normalizedDt();
+  ball.update(dt);
+
+  // Fingertip collisions (with velocity-based knock strength)
+  const vels = fingerTracker.velocities(LT, RT, dt);
+  if (LT) ball.collideFinger(LT.x, LT.y, vels.L.vx, vels.L.vy, CONFIG.fingerRadius);
+  if (RT) ball.collideFinger(RT.x, RT.y, vels.R.vx, vels.R.vy, CONFIG.fingerRadius);
+
+  // Update moving image when index fingers are close
+  const indexTouch = imageRect.updateFromIndexTouches(LT, RT, dt, CONFIG.indexTouchThreshold);
+
+  // Optional: collide with the moving image
+  if (imageRect.visible) ball.collideRect(imageRect);
+
+  // World bounds and damping
+  ball.resolveBounds();
+  ball.applyFriction();
+
+  // Draw ball
+  ball.draw();
+
+  // Draw two-hand visuals + image
+  if (LH && RH && indexTouch) {
+    stroke(146, 237, 0);
+    strokeWeight(8);
+    fill(146, 237, 0);
+    ellipse(LT.x, LT.y, 1);
+    ellipse(RT.x, RT.y, 1);
+    imageRect.drawImage(myImage);
   }
 
-  // this is a sketch that only really works if there are no more than 2 hands. It may be buggy with 3, so change the setting. 
-  // this looks in the hands array, and sorts the hands into two variables
-  let LH = hands.find(hand => hand.handedness === "Left");
-  let RH = hands.find(hand => hand.handedness === "Right");
+  // Optional solo-hand fingertip dots
+  if (LT) { stroke(0); strokeWeight(1); ellipse(LT.x, LT.y, 2); }
+  if (RT) { stroke(0); strokeWeight(1); ellipse(RT.x, RT.y, 2); }
 
-  // because we are going to need these variables for the rest of the sketch, we need to initialise them outside of any if statements
-  let L_indexFingerTipX, L_indexFingerTipY, L_indexPinkyTipX, L_indexPinkyTipY;
-  let R_indexFingerTipX, R_indexFingerTipY, R_indexPinkyTipX, R_indexPinkyTipY;
+  // Update fingertip history
+  fingerTracker.update(LT, RT);
 
-  // set up left hand variables, if there is a left hand. 
-  if (LH) {
-    L_indexFingerTipX = LH.index_finger_tip.x;
-    L_indexFingerTipY = LH.index_finger_tip.y;
-    L_indexPinkyTipX = LH.pinky_finger_tip.x;
-    L_indexPinkyTipY = LH.pinky_finger_tip.y;
-  }
-
-  // set up right hand variables, if there is a right hand. 
-  if (RH) {
-    R_indexFingerTipX = RH.index_finger_tip.x;
-    R_indexFingerTipY = RH.index_finger_tip.y;
-    R_indexPinkyTipX = RH.pinky_finger_tip.x;
-    R_indexPinkyTipY = RH.pinky_finger_tip.y;
-  }
-
-  // Physics update for the ball (basic)
-  const dt = constrain(deltaTime / 16.666, 0.5, 2.0); // normalize to ~60fps steps, clamp extremes
-  // Optional gravity; comment out to disable
-  // ball.vy += 0.2 * dt;
-
-  // Integrate
-  ball.x += ball.vx * dt;
-  ball.y += ball.vy * dt;
-
-  // Collide with fingertips (use previous frame positions to estimate finger velocity => knock strength)
-  if (LH) {
-    const lVx = prevTips.L ? (L_indexFingerTipX - prevTips.L.x) / dt : 0;
-    const lVy = prevTips.L ? (L_indexFingerTipY - prevTips.L.y) / dt : 0;
-    collideFingerWithBall(L_indexFingerTipX, L_indexFingerTipY, lVx, lVy);
-  }
-  if (RH) {
-    const rVx = prevTips.R ? (R_indexFingerTipX - prevTips.R.x) / dt : 0;
-    const rVy = prevTips.R ? (R_indexFingerTipY - prevTips.R.y) / dt : 0;
-    collideFingerWithBall(R_indexFingerTipX, R_indexFingerTipY, rVx, rVy);
-  }
-
-  // Update the image rect (position/velocity) if the two index fingers are close enough
-  let indexTouch = false;
-  if (LH && RH) {
-    indexTouch = areTheseTouching(L_indexFingerTipX, L_indexFingerTipY, R_indexFingerTipX, R_indexFingerTipY, 90);
-    if (indexTouch) {
-      const cx = (L_indexFingerTipX + R_indexFingerTipX) / 2;
-      const cy = (L_indexFingerTipY + R_indexFingerTipY) / 2;
-      imageRect.w = 50;
-      imageRect.h = 50;
-      const newX = cx - imageRect.w / 2;
-      const newY = cy - imageRect.h / 2;
-
-      // compute rect velocity from last frame
-      if (imageRect.prevX !== null && imageRect.prevY !== null) {
-        imageRect.vx = (newX - imageRect.prevX) / dt;
-        imageRect.vy = (newY - imageRect.prevY) / dt;
-      } else {
-        imageRect.vx = 0;
-        imageRect.vy = 0;
-      }
-
-      imageRect.x = newX;
-      imageRect.y = newY;
-      imageRect.visible = true;
-
-      imageRect.prevX = imageRect.x;
-      imageRect.prevY = imageRect.y;
-    } else {
-      // Not touching, hide/reset rect velocity history
-      imageRect.visible = false;
-      imageRect.vx = 0;
-      imageRect.vy = 0;
-      imageRect.prevX = null;
-      imageRect.prevY = null;
-    }
-  } else {
-    imageRect.visible = false;
-    imageRect.vx = 0;
-    imageRect.vy = 0;
-    imageRect.prevX = null;
-    imageRect.prevY = null;
-  }
-
-  // Collide the ball with the image rectangle (if visible)
-  if (imageRect.visible) {
-    collideBallWithRect(imageRect);
-  }
-
-  // Edge collisions
-  resolveBallWorldBounds();
-
-  // Friction/damping
-  ball.vx *= ball.friction;
-  ball.vy *= ball.friction;
-
-  // Draw the ball you can knock around
+  // Draw and update barrier (visual only)
+  fill(255, 0, 0);
   noStroke();
-  fill(255, 165, 0);
-  ellipse(ball.x, ball.y, ball.r * 2, ball.r * 2);
-
-  // This is where you can make effects that use both left hand and right hand variables
-  // this is needed because if these functions looked for a leftFingertip, but there was no leftHand, the program would crash.Vise versa for right handed variables. 
-  if (LH && RH) {
-    if (indexTouch) {
-      stroke(146, 237, 0)
-      strokeWeight(8)
-      fill(146, 237, 0)
-      ellipse(L_indexFingerTipX, L_indexFingerTipY, 1)
-      ellipse(R_indexFingerTipX, R_indexFingerTipY, 1)
-      // Draw the image centered between fingertips (same as before)
-      image(myImage, imageRect.x, imageRect.y, imageRect.w, imageRect.h)
-    }
-  }
-
-  // Solo-hand visuals
-  if (LH) {
-    stroke(0)
-    strokeWeight(1)
-    ellipse(L_indexFingerTipX, L_indexFingerTipY, 2);
-    // drawConnections(LH)
-  }
-  if (RH) {
-    stroke(0)
-    strokeWeight(1)
-    ellipse(R_indexFingerTipX, R_indexFingerTipY, 2);
-    // drawConnections(RH)
-  }
-
-  // Update previous fingertip positions for next frame's velocity estimate
-  prevTips.L = LH ? { x: L_indexFingerTipX, y: L_indexFingerTipY } : null;
-  prevTips.R = RH ? { x: R_indexFingerTipX, y: R_indexFingerTipY } : null;
-}
-
-function collideFingerWithBall(fx, fy, fvx, fvy) {
-  const dx = ball.x - fx;
-  const dy = ball.y - fy;
-  const minDist = ball.r + fingerRadius;
-  const distSq = dx * dx + dy * dy;
-
-  if (distSq <= minDist * minDist) {
-    const dist = max(1, sqrt(distSq));
-    const nx = dx / dist;
-    const ny = dy / dist;
-    const penetration = (ball.r + fingerRadius) - dist;
-
-    // Push ball out of the fingertip to resolve overlap
-    ball.x += nx * penetration;
-    ball.y += ny * penetration;
-
-    // Relative velocity along the collision normal
-    const relVx = ball.vx - fvx;
-    const relVy = ball.vy - fvy;
-    const vn = relVx * nx + relVy * ny;
-
-    // Only apply impulse if moving towards the finger
-    if (vn < 0) {
-      const j = -(1 + ball.restitution) * vn; // impulse magnitude assuming finger is heavy/infinite mass
-      ball.vx += nx * j;
-      ball.vy += ny * j;
-    } else {
-      // If separating, still carry a bit of finger motion
-      ball.vx += fvx * 0.08;
-      ball.vy += fvy * 0.08;
-    }
-  }
-}
-
-function resolveBallWorldBounds() {
-  // Left/right
-  if (ball.x < ball.r) {
-    ball.x = ball.r;
-    ball.vx = -ball.vx * ball.restitution;
-  } else if (ball.x > width - ball.r) {
-    ball.x = width - ball.r;
-    ball.vx = -ball.vx * ball.restitution;
-  }
-  // Top/bottom
-  if (ball.y < ball.r) {
-    ball.y = ball.r;
-    ball.vy = -ball.vy * ball.restitution;
-  } else if (ball.y > height - ball.r) {
-    ball.y = height - ball.r;
-    ball.vy = -ball.vy * ball.restitution;
-  }
-}
-
-function areTheseTouching(x1, y1, x2, y2, threshhold) {
-  let d = dist(x1, y1, x2, y2)
-  if (d < threshhold) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-function drawConnections(hand) {
-  // Draw the skeletal connections
-  push()
-  for (let j = 0; j < connections.length; j++) {
-    let pointAIndex = connections[j][0];
-    let pointBIndex = connections[j][1];
-    let pointA = hand.keypoints[pointAIndex];
-    let pointB = hand.keypoints[pointBIndex];
-    stroke(255, 0, 0);
-    strokeWeight(2);
-    line(pointA.x, pointA.y, pointB.x, pointB.y);
-  }
-  pop()
-}
-
-// This function draw's a dot on all the keypoints. It can be passed a whole face, or part of one. 
-function drawPoints(feature) {
-  push()
-  for (let i = 0; i < feature.keypoints.length; i++) {
-    let element = feature.keypoints[i];
-    noStroke();
-    fill(0, 255, 0);
-    circle(element.x, element.y, 5);
-  }
-  pop()
-}
-
-/**
- * Collide the moving ball (circle) with an axis-aligned rectangle (imageRect).
- * Includes position correction (to resolve overlap) and velocity response with restitution,
- * and accounts for the rectangle's velocity (so a moving image knocks the ball).
- */
-function collideBallWithRect(rect) {
-  // Find closest point on rect to circle center
-  const closestX = constrain(ball.x, rect.x, rect.x + rect.w);
-  const closestY = constrain(ball.y, rect.y, rect.y + rect.h);
-  let dx = ball.x - closestX;
-  let dy = ball.y - closestY;
-  let distSq = dx * dx + dy * dy;
-
-  // If the circle center is inside the rectangle, dx=dy=0; handle separately
-  if (dx === 0 && dy === 0) {
-    // Determine the shallowest exit direction
-    const dLeft = ball.x - rect.x;
-    const dRight = (rect.x + rect.w) - ball.x;
-    const dTop = ball.y - rect.y;
-    const dBottom = (rect.y + rect.h) - ball.y;
-
-    const minH = min(dLeft, dRight);
-    const minV = min(dTop, dBottom);
-    let nx = 0, ny = 0, penetration = 0;
-
-    if (minH < minV) {
-      // Move horizontally
-      if (dLeft < dRight) {
-        // Push left
-        nx = -1; ny = 0;
-        penetration = dLeft + ball.r;
-      } else {
-        // Push right
-        nx = 1; ny = 0;
-        penetration = dRight + ball.r;
-      }
-    } else {
-      // Move vertically
-      if (dTop < dBottom) {
-        // Push up
-        nx = 0; ny = -1;
-        penetration = dTop + ball.r;
-      } else {
-        // Push down
-        nx = 0; ny = 1;
-        penetration = dBottom + ball.r;
-      }
-    }
-
-    // Correct position
-    ball.x += nx * penetration;
-    ball.y += ny * penetration;
-
-    // Velocity response with rect motion
-    const relVx = ball.vx - rect.vx;
-    const relVy = ball.vy - rect.vy;
-    const vn = relVx * nx + relVy * ny;
-    if (vn < 0) {
-      const j = -(1 + ball.restitution) * vn;
-      ball.vx += nx * j;
-      ball.vy += ny * j;
-    }
-
-    return;
-  }
-
-  // Normal circle-rect collision when outside or touching
-  if (distSq <= ball.r * ball.r) {
-    const dist = max(1, sqrt(distSq));
-    const nx = dx / dist;
-    const ny = dy / dist;
-    const penetration = ball.r - dist;
-
-    // Push the ball out along the normal
-    ball.x += nx * penetration;
-    ball.y += ny * penetration;
-
-    // Relative velocity along normal (account for rect movement)
-    const relVx = ball.vx - rect.vx;
-    const relVy = ball.vy - rect.vy;
-    const vn = relVx * nx + relVy * ny;
-
-    // Only bounce if approaching
-    if (vn < 0) {
-      const j = -(1 + ball.restitution) * vn;
-      ball.vx += nx * j;
-      ball.vy += ny * j;
-    }
-  }
+  rect(barrier.x, barrier.y, barrier.w, barrier.h);
+  barrier.y += barrier.vy;
+  if (barrier.y < 0 || barrier.y + barrier.h > height) barrier.vy *= -1;
 }
