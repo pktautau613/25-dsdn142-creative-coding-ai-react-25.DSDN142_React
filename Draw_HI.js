@@ -1,4 +1,18 @@
 let myImage;
+let barrierImg; // image for the simple animated barrier
+let points = 0;
+let collided = false;
+
+// Simple barrier animation state (like your Xmove example)
+var Xmove = 0;
+const BARRIER = {
+  y: 100,
+  w: 45,
+  h: 45,
+  dx: 1, 
+  minX: 0,
+  maxX: 600 
+};
 
 // Config
 const CONFIG = {
@@ -231,12 +245,12 @@ let ball = new Ball(CONFIG.ball);
 let imageRect = new MovingRect();
 let fingerTracker = new FingerTracker();
 
-// Simple moving barrier (visual only; not colliding with ball)
-const barrier = { x: 100, y: 0, w: 10, h: 100, vy: 2 };
-
 // Lifecycle
 function prepareInteraction() {
+  // Load both images
   myImage = loadImage('danny-devito.jpg');
+  barrierImg = loadImage('barrier.png'); // place barrier.png next to this script or adjust path
+
   if (typeof width !== "undefined" && typeof height !== "undefined" && width > 0 && height > 0) {
     ball.initCenter();
   }
@@ -268,6 +282,16 @@ function drawInteraction(faces, hands) {
   ball.resolveBounds();
   ball.applyFriction();
 
+  // --- Simple Xmove-based barrier animation (no physics) ---
+  if (barrierImg) {
+    image(barrierImg, Xmove, BARRIER.y, BARRIER.w, BARRIER.h);
+  }
+  Xmove = Xmove + BARRIER.dx;
+  if (Xmove > BARRIER.maxX) {
+    Xmove = BARRIER.minX;
+  }
+  // ---------------------------------------------------------
+
   // Draw ball
   ball.draw();
 
@@ -288,10 +312,30 @@ function drawInteraction(faces, hands) {
   // Update fingertip history
   fingerTracker.update(LT, RT);
 
-  // Draw and update barrier (visual only)
-  fill(255, 0, 0);
-  noStroke();
-  rect(barrier.x, barrier.y, barrier.w, barrier.h);
-  barrier.y += barrier.vy;
-  if (barrier.y < 0 || barrier.y + barrier.h > height) barrier.vy *= -1;
+
+
+  
+  // --- Collision detection ---
+if (checkCollision(ball.x, ball.y, 50, Xmove, BARRIER.y, BARRIER.w, BARRIER.h)) {
+  if (!collided) {
+    points++;
+    collided = true;
+  }
+} else {
+  collided = false;
+}
+
+// --- Display points ---
+fill(0);
+textSize(24);
+text("Points: " + points, 20, 30);
+
+push()
+function checkCollision(cx, cy, diameter, rx, ry, rw, rh) {
+  let closestX = constrain(cx, rx, rx + rw);
+  let closestY = constrain(cy, ry, ry + rh);
+  let distance = dist(cx, cy, closestX, closestY);
+  return distance < diameter / 2;
+}
+pop()
 }
